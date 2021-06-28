@@ -2,7 +2,12 @@
 title: "Manipulate"
 author: "Henrique A. Peres"
 date: "23/06/2021"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: "show"
 ---
 
 ## Read online table
@@ -49,4 +54,82 @@ DT::datatable(d)
 ## Wrangle data
 
 ### Manipulate with `dplyr`
+
+```{r}
+library(DT)
+library(dplyr)
+
+d <- d %>% 
+  # tibble
+  tibble() %>% 
+  # mutate time
+  mutate(
+    time = as.Date(substr(time, 1, 10))) %>% 
+  # select columns
+  select(
+    time, 
+    starts_with("total_fisheries_revenue")) %>% 
+  # filter rows
+  filter(
+    time >= as.Date("1981-01-01"))
+
+datatable(d)
+
+```
+
+### Tidy with `tidyr`
+
+```{r}
+library(tidyr)
+
+d <- d %>% 
+  pivot_longer(-time)
+
+datatable(d)
+
+```
+
+### Summarize with `dplyr`
+
+```{r}
+library(stringr)
+
+d <- d %>% 
+  mutate(
+    region = str_replace(name, "total_fisheries_revenue_", "")) %>% 
+  select(time, region, value)
+datatable(d)
+
+d_sum <- d %>% 
+  group_by(region) %>% 
+  summarize(
+    avg_revenue = mean(value))
+datatable(d_sum) %>% 
+  formatCurrency("avg_revenue")
+
+```
+
+### Apply functions with `purrr` on a `nest`'ed `tibble`
+
+```{r}
+library(purrr)
+
+n <- d %>% 
+  group_by(region) %>% 
+  nest(
+    data = c(time, value))
+n
+
+n <- n %>% 
+  mutate(
+    lm    = map(data, function(d){
+      lm(value ~ time, d) } ),
+    trend = map_dbl(lm, function(m){
+      coef(summary(m))["time","Estimate"] }))
+n
+n %>% 
+  select(region, trend) %>% 
+  datatable()
+
+```
 
